@@ -34,8 +34,20 @@
 #### Преобразования в Power Query
 
 * Шаг 1 : Загрузка данных из .xslx файла (таблицы Orders и Returns)
+
 * Шаг 2 : Из таблицы Orders извлечены столбцы с информацией о покупателях (CustomerName, Segment). CustomerID не используется см. шаг 3.
-* Шаг 3 : В исходных данных у одного покупателя имеется несколько CustomerID. 
+
+* Шаг 3 : В исходных данных у одного покупателя имеется несколько CustomerID.
+
+![multiple_ids](https://github.com/petrosbatu/pbiproject/blob/main/images/Multiple_IDs.jpg?raw=true)
+
+Группируем клиентов по Customer Name, Segment (сегмент клиента). Добавляем столбец с индексами с первым значением и инкрементом равными 1. 
+
+```powerquery
+    Text.Start(Text.BeforeDelimiter([Customer Name], " "), 1) & 
+    Text.Start(Text.AfterDelimiter([Customer Name], " "), 1) &
+    "-" & Number.ToText([Index], "000000")
+```
 - Step 4 : It was observed that in none of the columns errors & empty values were present except column named "Arrival Delay".
 - Step 5 : For calculating average delay time, null values were not taken into account as only less than 1% values are null in this column(i.e column named "Arrival Delay") 
 - Step 6 : In the report view, under the view tab, theme was selected.
