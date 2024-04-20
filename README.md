@@ -33,26 +33,63 @@
 
 #### Преобразования в Power Query
 
-* Шаг 1 : Загрузка данных из .xslx файла (таблицы Orders и Returns)
+* Шаг 1 : Загрузка данных из .xslx файла (таблицы **Orders** и **Returns**, далее переименованы в **FactOrders** и **FactReturns**)
 
-* Шаг 2 : Из таблицы Orders извлечены столбцы с информацией о покупателях (CustomerName, Segment). CustomerID не используется см. шаг 3.
+* Шаг 2 : Дублируем таблицу FacrOrders и извлекаем из неё столбцы с информацией о покупателях (**CustomerName**, **Segment**). **CustomerID** не используется см. шаг 3. Называем таблицу DimCustomers
 
-* Шаг 3 : В исходных данных у одного покупателя имеется несколько CustomerID.
+* Шаг 3 : В исходных данных у одного покупателя имеется несколько **Customer ID**. 
 
 ![multiple_ids](https://github.com/petrosbatu/pbiproject/blob/main/images/Multiple_IDs.jpg?raw=true)
 
-Группируем клиентов по Customer Name, Segment (сегмент клиента). Добавляем столбец с индексами с первым значением и инкрементом равными 1. 
+Группируем клиентов по **Customer Name**, **Segment** (категория клиента). Добавляем временный столбец с индексами с первым значением и инкрементом равными 1. Затем с помощью следующей формулы присваем новый **CustomerID**, схожий по своему формату со старыми идентификаторами (первые буквы имени и фамилии и числовое значение c фиксированной длиной и ведущими нулями через дефис).
 
 ```powerquery
     Text.Start(Text.BeforeDelimiter([Customer Name], " "), 1) & 
     Text.Start(Text.AfterDelimiter([Customer Name], " "), 1) &
     "-" & Number.ToText([Index], "000000")
 ```
-- Step 4 : It was observed that in none of the columns errors & empty values were present except column named "Arrival Delay".
-- Step 5 : For calculating average delay time, null values were not taken into account as only less than 1% values are null in this column(i.e column named "Arrival Delay") 
-- Step 6 : In the report view, under the view tab, theme was selected.
-- Step 7 : Since the data contains various ratings, thus in order to represent ratings, a new visual was added using the three ellipses in the visualizations pane in report view. 
-- Step 8 : Visual filters (Slicers) were added for four fields named "Class", "Customer Type", "Gate Location" & "Type of travel".
+
+Получаем таблицу следующего вида:
+
+![dim_customers](https://github.com/petrosbatu/pbiproject/blob/main/images/DimCustomers.jpg?raw=true)
+
+При этом старые значения идентификаторов хранятся в источнике данных и при необходимости могут быть использованны.
+
+* Шаг 4 : Дублируем таблицу **FactOrders** и извлекаем из неё столбцы с информацией о товарах. Сохраняем только уникальные строки (каждый товар мог быть заказан многократно). Получаем таблицу **DimProducts**.
+
+* Шаг 5 : К таблице FactOrders присоединяем таблицу DimCustomers по CustomerName. Из правой таблицы раскрываем столбец **CustomerID**.
+
+* Шаг 6 : Из таблицы заказов убираем те столбцы, которые были перенесены в таблицу измерений (кроме идентификаторов). Также удаляем старый **Customer ID** и другие поля, которые не будут использоватася в дальнейших расчётах и визуализациях.
+
+* Шаг 7 : В таблице **FactReturns** убираем столбец **Returned**, так как в нём все значения равны "Yes" (иначе говоря, в таблице есть записи только о тех заказах, которые были возвращены).
+
+![returned](https://github.com/petrosbatu/pbiproject/blob/main/images/returned.jpg?raw=true)
+
+* Шаг 8 : применяем преобразования power query.
+
+#### Расчёты DAX
+
+* Шаг 9 : Создаём календарь **DimDates** с помощью формулы:
+
+```DAX
+DimDates = 
+ADDCOLUMNS(
+    CALENDARAUTO(),
+    "Year", YEAR([Date]),
+    "MonthName", FORMAT([Date], "MMMM"),
+    "MonthNumber", MONTH([Date]),
+    "Day", DAY([Date])
+)
+```
+Устанавливаем сортировку названий месяца по его номеру.
+
+* Шаг 10 : Устанавливаем связи между таблицами.  
+
+* Шаг 10 : Добавляем таблицу мер и создаём две меры. 
+1. **Return Rate** - частота возвратов. Число заказов с возвратами        
+```DAX
+Return Rate = COUNTROWS(FactReturns) / COUNTROWS(DISTINCT(FactOrders[Order ID]))
+```
 - Step 9 : Two card visuals were added to the canvas, one representing average departure delay in minutes & other representing average arrival delay in minutes.
            Using visual level filter from the filters pane, basic filtering was used & null values were unselected for consideration into average calculation.
            
